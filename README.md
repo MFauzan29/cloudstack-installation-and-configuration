@@ -3,7 +3,7 @@
 Contributors :
 | Nama                          | NPM         | Github         |
 |------------------------------|-------------|----------------|
-| Dimas Dermawan               | 2206059654  | ---     |
+| Dimas Dermawan               | 2206059654  | [@den-dimas](https://github.com/den-dimas)     |
 | Irfan Yusuf Khaerullah       | 2206813290  | [@irfanyusuf13](https://github.com/irfanyusuf13)    |
 | Aulia Anugrah Aziz           | 2206059364  | [@auli-aziz](https://github.com/auli-aziz) |
 | Muhamad Fauzan               | 2206819054  | [@MFauzan29](https://github.com/MFauzan29) |
@@ -16,7 +16,11 @@ Contributors :
 
 Cloudstack adalah software komputasi awan open-source yang dirancang untuk menerapkan dan mengelola jaringan mesin virtual (VM) dalam skala besar. Cloudstack merupakan platform Infrastructure-as-a-Service (IaaS) yang menyediakan serangkaian fitur lengkap untuk membangun dan mengelola lingkungan cloud yang dapat diskalakan. Platform ini mendukung berbagai jenis hypervisor, memiliki kemampuan API yang luas, dan menyediakan beragam alat bagi administrator cloud.
 
-Dengan cloudstack, pengguna dapat mengelola cloud melalui antarmuka web, command line interface, dan RESTful API yang memiliki fitur lengkap. Closdstack juga menyediakan API yang kompatibel dengan AWS EC2 dan S2 bagi organisasi yang ingin menerapkan cloud hybrid.
+Dengan cloudstack, pengguna dapat mengelola cloud melalui antarmuka web, command line interface, dan RESTful API yang memiliki fitur lengkap. Cloudstack juga menyediakan API yang kompatibel dengan AWS EC2 dan S2 bagi organisasi yang ingin menerapkan cloud hybrid.
+
+## Architecture Reference 
+![messageImage_1747839942200](https://hackmd.io/_uploads/S1t82PiZgx.jpg)
+
 
 ## Environment Setup
 
@@ -25,19 +29,20 @@ Dengan cloudstack, pengguna dapat mengelola cloud melalui antarmuka web, command
 ```
 CPU : Intel Core i5 gen 8
 RAM : 24 GB
-Storage : 
+Storage : 250GB
 Network : Ethernet 100GB/s
 Operating System : Ubuntu Server 24.04
 ```
 
 ### Network Address
 ```
-Network Address : 
-Host IP address :
-Gateway : 
-Management IP :
-System IP :
-Public IP :
+Network Address : 10.10.0.0/16
+Host IP address : 192.168.1.5 (KVM Host)
+Gateway         : 192.168.1.101 (Virtual Router)
+Management IP   : 192.168.1.5
+System IP       : 10.10.10.1 (jaringan internal ke VM via VR)
+Public IP       : 192.168.1.101 (VR interface ke luar)
+
 ```
 
 
@@ -53,7 +58,6 @@ hostname --fqdn
 > Jika belum FQDN (misalnya: cloudstack1.localdomain), ubah /etc/hosts agar sesuai.
 
 #### Install NTP (Chrony)
-
 ```
 sudo apt update
 sudo apt install chrony -y
@@ -71,6 +75,8 @@ Tambahkan:
 ```
 deb https://download.cloudstack.org/ubuntu focal 4.20
 ```
+![image](https://hackmd.io/_uploads/SJnIBviWlx.png)
+
 Tambahkan GPG key : 
 ```
 wget -O - https://download.cloudstack.org/release.asc | sudo tee /etc/apt/trusted.gpg.d/cloudstack.asc
@@ -102,6 +108,8 @@ max_connections=350
 log-bin=mysql-bin
 binlog-format = 'ROW'
 ```
+![image](https://hackmd.io/_uploads/H1KjSPj-xl.png)
+
 Restart MySQL:
 ```
 sudo systemctl restart mysql
@@ -180,6 +188,8 @@ Isi :
 ```
 /export *(rw,async,no_root_squash,no_subtree_check)
 ```
+![image](https://hackmd.io/_uploads/BJMeLvjWgg.png)
+
 Aktifkan NFS : 
 ```
 sudo exportfs -a
@@ -199,16 +209,34 @@ sudo /usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tm
 ```
 
 ### Akses UI Cloudstack
+![image](https://hackmd.io/_uploads/HJgdQwibgl.png)
 
+#### Akses UI CloudStack
+- URL: `http://<management-ip>:8080/client`
+- Username: `admin`
+- Password: `123`
 
 ## Konfigurasi KVM Hypervisor
 
+KVM (Kernel-based Virtual Machine) adalah hypervisor tipe 1 yang terintegrasi langsung ke dalam kernel Linux. Dengan KVM, Linux berubah dari sistem operasi biasa menjadi platform virtualisasi penuh yang bisa menjalankan banyak sistem operasi (VM) secara bersamaan.
+
+### Konfigurasi Agent
+```
+sudo apt install cloudstack-agent
+```
+**Jika menggunakan non root user tambahkan**
+```
+cloudstack ALL=NOPASSWD: /usr/bin/cloudstack-setup-agent
+Defaults:cloudstack !requiretty
+```
 ### Konfigurasi `libvirt`
-Edit file : 
+``libvirt`` adalah library dan toolkit manajemen virtualisasi yang digunakan untuk mengelola hypervisor seperti KVM, QEMU, Xen, VMware, dan lainnya.
+
+#### Edit file : 
 ```
 sudo nano /etc/libvirt/libvirtd.conf
 ```
-Set parameter berikut : 
+#### Set parameter berikut : 
 ```
 listen_tls = 0
 listen_tcp = 0
@@ -217,6 +245,9 @@ tcp_port = "16509"
 auth_tcp = "none"
 mdns_adv = 0
 ```
+![image](https://hackmd.io/_uploads/ryrxBwiZeg.png)
+
+
 Edit file : 
 ```
 sudo nano /etc/default/libvirtd
@@ -233,6 +264,8 @@ Tambahkan ini :
 ```
 remote_mode="legacy"
 ```
+![image](https://hackmd.io/_uploads/BkUpNPoWxl.png)
+
 Restart libvirt : 
 ```
 sudo systemctl restart libvirtd
@@ -251,6 +284,54 @@ sudo apparmor_parser -R /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper
 Asumsikan satu interface fisik `eth0` dengan:
 * VLAN 100 → Management (cloudbr0)
 * VLAN 200 → Guest (cloudbr1)
+
+```
+sudo nano /etc/netplan/01-cloudstack.yaml
+```
+```
+network:
+  version: 2
+  renderer: networkd
+
+  ethernets:
+    enp1s0:
+      dhcp4: false
+      dhcp6: false
+
+  vlans:
+    vlan200:
+      id: 200
+      link: enp1s0
+
+  bridges:
+    cloudbr0:
+      interfaces: [enp1s0]
+      addresses:
+        - 192.168.1.5/24
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses: [1.1.1.1]
+      parameters:
+        stp: true
+        forward-delay: 0
+
+    cloudbr1:
+      interfaces: [vlan200]
+      dhcp4: false
+      dhcp6: false
+      parameters:
+        stp: true
+        forward-delay: 0
+```
+![image](https://hackmd.io/_uploads/BJfPUwsWxl.png)
+
+Lalu aktifkan :
+```
+sudo netplan apply
+```
+
 ```
 sudo nano /etc/netplan/01-kvm-basic.yaml
 ```
@@ -282,10 +363,13 @@ network:
       parameters:
         stp: true
 ```
+
 Lalu aktifkan : 
 ```
 sudo netplan apply
 ```
+
+
 #### Advanced Networking (dengan Netplan)
 Asumsikan 2 interface:
 * eth0 → cloudbr0 (management)
@@ -383,3 +467,15 @@ sudo apt install aria2 -y
 ```
 sudo apt install ovmf -y
 ```
+
+
+### Konfigurasi Cloudstack
+
+**Register Iso**
+![image](https://hackmd.io/_uploads/rkf4OPoZee.png)
+
+**Add Instances**
+![image](https://hackmd.io/_uploads/rkwToDjZxl.png)
+
+![image](https://hackmd.io/_uploads/HycknDobxl.png)
+
