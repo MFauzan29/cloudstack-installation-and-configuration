@@ -14,7 +14,9 @@ Contributors :
 
 ### Apa itu Cloudstack
 
+Cloudstack adalah software komputasi awan open-source yang dirancang untuk menerapkan dan mengelola jaringan mesin virtual (VM) dalam skala besar. Cloudstack merupakan platform Infrastructure-as-a-Service (IaaS) yang menyediakan serangkaian fitur lengkap untuk membangun dan mengelola lingkungan cloud yang dapat diskalakan. Platform ini mendukung berbagai jenis hypervisor, memiliki kemampuan API yang luas, dan menyediakan beragam alat bagi administrator cloud.
 
+Dengan cloudstack, pengguna dapat mengelola cloud melalui antarmuka web, command line interface, dan RESTful API yang memiliki fitur lengkap. Closdstack juga menyediakan API yang kompatibel dengan AWS EC2 dan S2 bagi organisasi yang ingin menerapkan cloud hybrid.
 
 ## Environment Setup
 
@@ -37,6 +39,7 @@ Management IP :
 System IP :
 Public IP :
 ```
+
 
 ## Configure Network
 
@@ -196,3 +199,187 @@ sudo /usr/share/cloudstack-common/scripts/storage/secondary/cloud-install-sys-tm
 ```
 
 ### Akses UI Cloudstack
+
+
+## Konfigurasi KVM Hypervisor
+
+### Konfigurasi `libvirt`
+Edit file : 
+```
+sudo nano /etc/libvirt/libvirtd.conf
+```
+Set parameter berikut : 
+```
+listen_tls = 0
+listen_tcp = 0
+tls_port = "16514"
+tcp_port = "16509"
+auth_tcp = "none"
+mdns_adv = 0
+```
+Edit file : 
+```
+sudo nano /etc/default/libvirtd
+```
+Ubah : 
+```
+LIBVIRTD_ARGS="--listen"
+```
+Edit juga `/etc/libvirt/libvirt.conf`:
+```
+sudo nano /etc/libvirt/libvirt.conf
+```
+Tambahkan ini : 
+```
+remote_mode="legacy"
+```
+Restart libvirt : 
+```
+sudo systemctl restart libvirtd
+```
+
+### Nonaktifkan AppArmor (Ubuntu)
+```
+sudo ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
+sudo ln -s /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper /etc/apparmor.d/disable/
+sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd
+sudo apparmor_parser -R /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper
+```
+
+### Konfigurasi Jaringan
+#### Basic Networking (dengan Netplan)
+Asumsikan satu interface fisik `eth0` dengan:
+* VLAN 100 → Management (cloudbr0)
+* VLAN 200 → Guest (cloudbr1)
+```
+sudo nano /etc/netplan/01-kvm-basic.yaml
+```
+Isi : 
+```
+network:
+  version: 2
+  ethernets:
+    eth0: {}
+  vlans:
+    vlan100:
+      id: 100
+      link: eth0
+    vlan200:
+      id: 200
+      link: eth0
+  bridges:
+    cloudbr0:
+      interfaces: [vlan100]
+      addresses: [192.168.42.11/24]
+      gateway4: 192.168.42.1
+      nameservers:
+        addresses: [8.8.8.8, 8.8.4.4]
+      parameters:
+        stp: true
+    cloudbr1:
+      interfaces: [vlan200]
+      dhcp4: false
+      parameters:
+        stp: true
+```
+Lalu aktifkan : 
+```
+sudo netplan apply
+```
+#### Advanced Networking (dengan Netplan)
+Asumsikan 2 interface:
+* eth0 → cloudbr0 (management)
+* eth1 → cloudbr1 (guest/public)
+```
+sudo nano /etc/netplan/01-kvm-advanced.yaml
+```
+Isi : 
+```
+network:
+  version: 2
+  ethernets:
+    eth0: {}
+    eth1: {}
+  bridges:
+    cloudbr0:
+      interfaces: [eth0]
+      addresses: [192.168.42.11/24]
+      gateway4: 192.168.42.1
+      nameservers:
+        addresses: [8.8.8.8, 8.8.4.4]
+      parameters:
+        stp: true
+    cloudbr1:
+      interfaces: [eth1]
+      dhcp4: false
+      parameters:
+        stp: true
+```
+Aktifkan : 
+```
+sudo netplan apply
+```
+#### OpenVSwitch Mode
+**Install OVS**
+```
+sudo apt install openvswitch-switch -y
+```
+**Setup OVS bridges dan VLAN**
+```
+sudo modprobe -r bridge
+sudo ovs-vsctl add-br cloudbr
+sudo ovs-vsctl add-port cloudbr eth0
+sudo ovs-vsctl set port cloudbr trunks=100,200,300
+sudo ovs-vsctl add-br mgmt0 cloudbr 100
+sudo ovs-vsctl add-br cloudbr0 cloudbr 200
+sudo ovs-vsctl add-br cloudbr1 cloudbr 300
+```
+**Setup Netplan**
+```
+sudo nano /etc/netplan/01-kvm-ovs.yaml
+```
+Isi : 
+```
+network:
+  version: 2
+  ethernets:
+    eth0: {}
+  bridges:
+    mgmt0:
+      interfaces: []
+      addresses: [192.168.42.11/24]
+      gateway4: 192.168.42.1
+      nameservers:
+        addresses: [8.8.8.8, 8.8.4.4]
+    cloudbr0:
+      interfaces: []
+      dhcp4: false
+    cloudbr1:
+      interfaces: []
+      dhcp4: false
+```
+Aktifkan:
+```
+sudo netplan apply
+```
+
+### Konfigurasi Firewall
+Buka port untuk KVM dan Cloudstack: 
+```
+sudo ufw allow 22
+sudo ufw allow 1798
+sudo ufw allow 16514
+sudo ufw allow 5900:6100/tcp
+sudo ufw allow 49152:49216/tcp
+```
+> Jika UFW aktif dan bridged network gagal, tambahkan di `/etc/ufw/before.rules` sebelum `COMMIT`:
+
+### Tambahan Opsional
+* Install `aria2` jika ingin mendukung Secondary Storage Bypass:
+```
+sudo apt install aria2 -y
+```
+* Install `ovmf` untuk support UEFI:
+```
+sudo apt install ovmf -y
+```
