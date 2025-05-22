@@ -63,7 +63,6 @@ sudo apt update
 sudo apt install chrony -y
 sudo systemctl enable chrony
 sudo systemctl start chrony
-
 ```
 
 #### Konfigurasi Repository Cloudstack
@@ -479,3 +478,41 @@ sudo apt install ovmf -y
 
 ![image](https://hackmd.io/_uploads/HycknDobxl.png)
 
+### Konfigurasi Web Server
+* Update ubuntu
+```
+sudo apt update
+```
+* Update ubuntu
+```
+sudo apt install apache2
+```
+* Memeriksa status aktif apache (pastikan Apache2 sudah aktif)
+```
+service apache2 statis
+```
+* Mendownload uzip
+```
+sudo apt install unzip
+```
+* Mendownload template HTML
+```
+wget --content-disposition --trust-server-names "https://templatemo.com/download/templatemo_589_lugx_gaming"
+```
+* Melakukan unzip template HTML
+```
+unzip templatemo_589_lugx_gaming.zip -d lugx_gaming
+```
+* Rename default index.html
+```
+sudo mv /var/www/html/index.html /var/www/html/index_backup.html
+```
+* Copy template ke dalam folder /var/www/html
+```
+sudo cp -r ~/templatemo_589_lugx_gaming/* /var/www/html/
+```
+* Memberikan izin
+```
+sudo chown -R www-data:www-data /var/www/html/
+sudo chmod -R 755 /var/www/html/
+```
