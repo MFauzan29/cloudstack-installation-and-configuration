@@ -483,13 +483,13 @@ sudo apt install ovmf -y
 ```
 sudo apt update
 ```
-* Update ubuntu
+* Install Apache2
 ```
 sudo apt install apache2
 ```
 * Memeriksa status aktif apache (pastikan Apache2 sudah aktif)
 ```
-service apache2 statis
+service apache2 status
 ```
 * Mendownload uzip
 ```
