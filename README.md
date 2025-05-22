@@ -1,6 +1,7 @@
 # Apache Cloudstack Private Cloud Installation and Configuration
 
-Contributors :
+**Kelompok 6**
+Anggota :
 | Nama                          | NPM         | Github         |
 |------------------------------|-------------|----------------|
 | Dimas Dermawan               | 2206059654  | [@den-dimas](https://github.com/den-dimas)     |
