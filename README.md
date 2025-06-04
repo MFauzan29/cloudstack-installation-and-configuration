@@ -472,12 +472,16 @@ sudo apt install ovmf -y
 ### Konfigurasi Cloudstack
 
 **Register Iso**
+
 ![image](https://hackmd.io/_uploads/rkf4OPoZee.png)
 
 **Add Instances**
+
 ![image](https://hackmd.io/_uploads/rkwToDjZxl.png)
 
 ![image](https://hackmd.io/_uploads/HycknDobxl.png)
+
+
 
 ### Konfigurasi Web Server
 * Update ubuntu
@@ -517,3 +521,6 @@ sudo cp -r ~/templatemo_589_lugx_gaming/* /var/www/html/
 sudo chown -R www-data:www-data /var/www/html/
 sudo chmod -R 755 /var/www/html/
 ```
+
+### Link Youtube untuk Tutorial Register ISO dan Add Instances 
+https://youtu.be/c7lkRQ5MGvA
