@@ -1,7 +1,6 @@
 # Apache Cloudstack Private Cloud Installation and Configuration
 
-**Kelompok 6**
-Anggota :
+Contributors :
 | Nama                          | NPM         | Github         |
 |------------------------------|-------------|----------------|
 | Dimas Dermawan               | 2206059654  | [@den-dimas](https://github.com/den-dimas)     |
@@ -126,10 +125,26 @@ sudo mysql_secure_installation
 cloudstack-setup-databases cloud:YourCloudDBPassword@localhost --deploy-as=root:YourMySQLRootPassword
 ```
 
+```
+cloudstack-setup-databases cloud:123@localhost --deploy-as=root:123 -i 192.168.1.5
+```
+
 Setelah sukses, akan muncul:
 ```
 Successfully initialized the database.
 ```
+
+```
+Sudo nano etc/sudoers
+```
+
+Lalu tambahkan line ini
+```
+Defaults:cloud !requiretty
+```
+
+![image](https://hackmd.io/_uploads/HJxXuPAGxx.png)
+
 
 #### Membuat Database & User untuk Cloudstack
 Masuk ke MySQL sebagai root
@@ -173,6 +188,12 @@ sudo cloudstack-setup-management
 Jika berhasil akan muncul 
 > “CloudStack Management Server setup is done.”
 
+Mengecek status cloudstack
+
+```
+sudo systemctl status cloudstack-management
+```
+
 ### Setup NFS Lokal 
 #### Install NFS Server
 ```
@@ -195,6 +216,12 @@ Aktifkan NFS :
 sudo exportfs -a
 sudo systemctl restart nfs-kernel-server
 ```
+
+Mengecek Status NFS
+```
+sudo systemctl status nfs-kernel-server
+```
+
 
 ### Download System VM Template 
 Contoh untuk KVM : 
@@ -279,6 +306,12 @@ sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd
 sudo apparmor_parser -R /etc/apparmor.d/usr.lib.libvirt.virt-aa-helper
 ```
 
+Mengecek status Cloudstack agent
+
+```
+sudo systemctl status cloudstack-agent
+```
+
 ### Konfigurasi Jaringan
 #### Basic Networking (dengan Netplan)
 Asumsikan satu interface fisik `eth0` dengan:
@@ -332,157 +365,6 @@ Lalu aktifkan :
 sudo netplan apply
 ```
 
-```
-sudo nano /etc/netplan/01-kvm-basic.yaml
-```
-Isi : 
-```
-network:
-  version: 2
-  ethernets:
-    eth0: {}
-  vlans:
-    vlan100:
-      id: 100
-      link: eth0
-    vlan200:
-      id: 200
-      link: eth0
-  bridges:
-    cloudbr0:
-      interfaces: [vlan100]
-      addresses: [192.168.42.11/24]
-      gateway4: 192.168.42.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-      parameters:
-        stp: true
-    cloudbr1:
-      interfaces: [vlan200]
-      dhcp4: false
-      parameters:
-        stp: true
-```
-
-Lalu aktifkan : 
-```
-sudo netplan apply
-```
-
-
-#### Advanced Networking (dengan Netplan)
-Asumsikan 2 interface:
-* eth0 → cloudbr0 (management)
-* eth1 → cloudbr1 (guest/public)
-```
-sudo nano /etc/netplan/01-kvm-advanced.yaml
-```
-Isi : 
-```
-network:
-  version: 2
-  ethernets:
-    eth0: {}
-    eth1: {}
-  bridges:
-    cloudbr0:
-      interfaces: [eth0]
-      addresses: [192.168.42.11/24]
-      gateway4: 192.168.42.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-      parameters:
-        stp: true
-    cloudbr1:
-      interfaces: [eth1]
-      dhcp4: false
-      parameters:
-        stp: true
-```
-Aktifkan : 
-```
-sudo netplan apply
-```
-#### OpenVSwitch Mode
-**Install OVS**
-```
-sudo apt install openvswitch-switch -y
-```
-**Setup OVS bridges dan VLAN**
-```
-sudo modprobe -r bridge
-sudo ovs-vsctl add-br cloudbr
-sudo ovs-vsctl add-port cloudbr eth0
-sudo ovs-vsctl set port cloudbr trunks=100,200,300
-sudo ovs-vsctl add-br mgmt0 cloudbr 100
-sudo ovs-vsctl add-br cloudbr0 cloudbr 200
-sudo ovs-vsctl add-br cloudbr1 cloudbr 300
-```
-**Setup Netplan**
-```
-sudo nano /etc/netplan/01-kvm-ovs.yaml
-```
-Isi : 
-```
-network:
-  version: 2
-  ethernets:
-    eth0: {}
-  bridges:
-    mgmt0:
-      interfaces: []
-      addresses: [192.168.42.11/24]
-      gateway4: 192.168.42.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-    cloudbr0:
-      interfaces: []
-      dhcp4: false
-    cloudbr1:
-      interfaces: []
-      dhcp4: false
-```
-Aktifkan:
-```
-sudo netplan apply
-```
-
-### Konfigurasi Firewall
-Buka port untuk KVM dan Cloudstack: 
-```
-sudo ufw allow 22
-sudo ufw allow 1798
-sudo ufw allow 16514
-sudo ufw allow 5900:6100/tcp
-sudo ufw allow 49152:49216/tcp
-```
-> Jika UFW aktif dan bridged network gagal, tambahkan di `/etc/ufw/before.rules` sebelum `COMMIT`:
-
-### Tambahan Opsional
-* Install `aria2` jika ingin mendukung Secondary Storage Bypass:
-```
-sudo apt install aria2 -y
-```
-* Install `ovmf` untuk support UEFI:
-```
-sudo apt install ovmf -y
-```
-
-
-### Konfigurasi Cloudstack
-
-**Register Iso**
-
-![image](https://hackmd.io/_uploads/rkf4OPoZee.png)
-
-**Add Instances**
-
-![image](https://hackmd.io/_uploads/rkwToDjZxl.png)
-
-![image](https://hackmd.io/_uploads/HycknDobxl.png)
-
-
-
 ### Konfigurasi Web Server
 * Update ubuntu
 ```
@@ -522,15 +404,89 @@ sudo chown -R www-data:www-data /var/www/html/
 sudo chmod -R 755 /var/www/html/
 ```
 
-### Link Youtube Instalasi Cloudstack
+### Konfigurasi Firewall
+Buka port untuk KVM dan Cloudstack: 
+```
+sudo ufw allow 22
+sudo ufw allow 1798
+sudo ufw allow 16514
+sudo ufw allow 5900:6100/tcp
+sudo ufw allow 49152:49216/tcp
+```
+> Jika UFW aktif dan bridged network gagal, tambahkan di `/etc/ufw/before.rules` sebelum `COMMIT`:
+
+### Tambahan Opsional
+* Install `aria2` jika ingin mendukung Secondary Storage Bypass:
+```
+sudo apt install aria2 -y
+```
+* Install `ovmf` untuk support UEFI:
+```
+sudo apt install ovmf -y
+```
+
+
+### Konfigurasi Cloudstack
+
+**Zone**
+
+![image](https://hackmd.io/_uploads/rk3WfDAMgx.png)
+
+![image](https://hackmd.io/_uploads/SkhzMDRzxe.png)
+
+![image](https://hackmd.io/_uploads/SkyrGv0fgg.png)
+
+![image](https://hackmd.io/_uploads/Sk6rMDAGlg.png)
+
+![image](https://hackmd.io/_uploads/HJZuMPAfgx.png)
+
+![image](https://hackmd.io/_uploads/rknczv0Mxe.png)
+
+![image](https://hackmd.io/_uploads/r142zv0Gle.png)
+
+![image](https://hackmd.io/_uploads/HkBpzwCzxx.png)
+
+![image](https://hackmd.io/_uploads/r1RRGPAMgx.png)
+
+![image](https://hackmd.io/_uploads/SJEZXPCMeg.png)
+
+![image](https://hackmd.io/_uploads/S1b7XDAMel.png)
+
+![image](https://hackmd.io/_uploads/HkU4QPAGgx.png)
+
+
+**Guest Network**
+
+![image](https://hackmd.io/_uploads/BkNSVDAGxx.png)
+
+
+**Give VM Internet Access (Egress Rules)**
+
+![image](https://hackmd.io/_uploads/r1DHrDAfgx.png)
+
+**Give SSH Access to VM (Firewall and Port Forwarding)**
+
+![image](https://hackmd.io/_uploads/SyoAHD0feg.png)
+
+![image](https://hackmd.io/_uploads/HJsJIPCGeg.png)
+
+**Register Iso**
+
+![image](https://hackmd.io/_uploads/rkf4OPoZee.png)
+
+**Add Instances**
+![image](https://hackmd.io/_uploads/rkwToDjZxl.png)
+
+![image](https://hackmd.io/_uploads/HycknDobxl.png)
+
+
+### Link Youtube untuk Tutorial Konfigurasi Advanced Zone dan Isolated Network
 https://youtu.be/L3CTfM9Fd0c
 
-### Link Youtube Setup Isolated Network Zona
+### Link Youtube Installation Apache Cloudstack
 https://youtu.be/QbtKf2Fd12U
 
-### Link Youtube Tutorial Shared Network
+### Link Youtube Shared Network
 
 ### Link Youtube untuk Tutorial Register ISO dan Add Instances 
 https://youtu.be/c7lkRQ5MGvA
-
-
