@@ -487,6 +487,7 @@ https://youtu.be/L3CTfM9Fd0c
 https://youtu.be/QbtKf2Fd12U
 
 ### Link Youtube Shared Network
+https://youtu.be/SBnVq-Edtsw
 
 ### Link Youtube untuk Tutorial Register ISO dan Add Instances 
 https://youtu.be/c7lkRQ5MGvA
