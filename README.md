@@ -522,5 +522,15 @@ sudo chown -R www-data:www-data /var/www/html/
 sudo chmod -R 755 /var/www/html/
 ```
 
+### Link Youtube Instalasi Cloudstack
+https://youtu.be/L3CTfM9Fd0c
+
+### Link Youtube Setup Isolated Network Zona
+https://youtu.be/QbtKf2Fd12U
+
+### Link Youtube Tutorial Shared Network
+
 ### Link Youtube untuk Tutorial Register ISO dan Add Instances 
 https://youtu.be/c7lkRQ5MGvA
+
+
